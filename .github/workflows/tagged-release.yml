@@ -1,0 +1,59 @@
+name: Create tag and release
+run-name: Create tag and release by ${{ github.actor }}
+
+on:
+  pull_request:
+    types:
+      - closed
+
+    branches:
+      - master
+      - main
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  create-tagged-release:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+
+    steps:
+      - name: Check merge branch is release branch
+        run: |
+          if [[ "${{ github.head_ref }}" =~ release/[0-9]+.[0-9]+/[0-9]+.[0-9]+.[0-9]+ ]]; then
+            echo "Create Tag and Release"
+          else
+            echo "Merge branch is not release branch"
+            exit 1
+          fi
+
+      - name: Extract version from branch name
+        id: extract_version
+        run: echo "::set-output name=version::$(echo ${{ github.head_ref }} | cut -d'/' -f3)"
+
+      - name: Extract tag version from branch name
+        id: extract_tag_version
+        run: echo "::set-output name=tag_name::v$(echo ${{ github.head_ref }} | sed 's/^release//')"
+
+      # Now you can use the extracted values in subsequent steps
+      - name: Show extracted version
+        run: |
+          echo "version: ${{ steps.extract_version.outputs.version }}"
+          echo "Tag Name: ${{ steps.extract_tag_version.outputs.tag_name }}"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1.1.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.extract_tag_version.outputs.tag_name }}
+          release_name: v${{ steps.extract_version.outputs.version }}
+          body: |
+            Changes in this Release UPDATED
+            - First Change
+            - Second Change
+          draft: false
+          prerelease: false
